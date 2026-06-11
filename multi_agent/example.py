@@ -1,4 +1,5 @@
 import operator
+from pprint import pprint
 from typing import Annotated, Literal
 
 import nest_asyncio
@@ -12,6 +13,7 @@ from typing_extensions import TypedDict
 from common.keys import get_keys
 from common.llm import create_openai_llm
 
+_MAX_ITERATIONS = 6
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
 
@@ -50,6 +52,8 @@ class SupervisorDecision(BaseModel):
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], operator.add]
     next: str
+    iterations: int
+    success: bool
 
 
 # ── Nodes ─────────────────────────────────────────────────────────────────────
@@ -65,9 +69,13 @@ def make_supervisor_node(llm):
     structured_llm = llm.with_structured_output(SupervisorDecision)
 
     def supervisor(state: AgentState) -> dict:
+        iterations = state.get("iterations", 0) + 1
+        if iterations >= _MAX_ITERATIONS:
+            return {"next": "failed", "iterations": iterations, 'success': False}
+
         decision = structured_llm.invoke([system] + state["messages"])
         print(f"\n[supervisor] → {decision.next}  reason: {decision.reasoning}")
-        return {"next": decision.next}
+        return {"next": decision.next, "iterations": iterations, 'success': True}
 
     return supervisor
 
@@ -99,7 +107,7 @@ def build_graph(llm):
     graph.add_conditional_edges(
         "supervisor",
         lambda state: state["next"],
-        {"researcher": "researcher", "writer": "writer", "FINISH": END},
+        {"researcher": "researcher", "writer": "writer", "FINISH": END, "failed": END},
     )
     graph.add_edge("researcher", "supervisor")
     graph.add_edge("writer", "supervisor")
@@ -119,10 +127,14 @@ def _main():
 
     result = app.invoke({"messages": [HumanMessage(content=task)]})
 
-    print("\n" + "=" * 60 + " FINAL OUTPUT " + "=" * 60)
-    for msg in result["messages"]:
-        name = getattr(msg, "name", None) or type(msg).__name__
-        print(f"\n[{name}]\n{msg.content}")
+    pprint(result)
+    if result['success']:
+        print("\n" + "=" * 60 + " FINAL OUTPUT " + "=" * 60)
+        for msg in result["messages"]:
+            name = getattr(msg, "name", None) or type(msg).__name__
+            print(f"\n[{name}]\n{msg.content}")
+    else:
+        print("\n" + "=" * 60 + " FAILED " + "=" * 60)
 
 
 if __name__ == "__main__":
