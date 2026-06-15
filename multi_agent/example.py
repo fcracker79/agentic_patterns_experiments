@@ -50,6 +50,8 @@ class SupervisorDecision(BaseModel):
 # ── State ─────────────────────────────────────────────────────────────────────
 
 class AgentState(TypedDict):
+    # operator.add defines the behavior of merging state with returned node result.
+    # messages = messages + returned_messages_by_node
     messages: Annotated[list[BaseMessage], operator.add]
     next: str
     iterations: int
@@ -88,6 +90,8 @@ def make_agent_node(llm, tools: list, name: str):
         result = agent.invoke(state)
         last_message = result["messages"][-1]
         last_message.name = name
+        # The rest of the context is kept: `messages` have the annotation `operator.add`,
+        # so they will be concatenated across iterations.
         return {"messages": [last_message]}
 
     return node
@@ -130,6 +134,9 @@ def _main():
     pprint(result)
     if result['success']:
         print("\n" + "=" * 60 + " FINAL OUTPUT " + "=" * 60)
+        # The response is provided by researcher or writer: they both have the whole context
+        # and a specific tool, if needed. The supervisor instead is limited to what it can
+        # return.
         for msg in result["messages"]:
             name = getattr(msg, "name", None) or type(msg).__name__
             print(f"\n[{name}]\n{msg.content}")
