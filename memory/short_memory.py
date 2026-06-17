@@ -8,6 +8,14 @@ from common.keys import get_keys
 from common.llm import create_openai_llm
 
 
+def chat_verify_with_cfg(app: Runnable, cfg: dict):
+    def chat(question: str) -> str:
+        result = app.invoke({"messages": [HumanMessage(content=question)]}, config=cfg)
+        return result["messages"][-1].content
+
+    print(chat(f"Tell me who I am and recap what we talked about"))
+
+
 def chat_with_cfg(app: Runnable, therad_id: str, cfg: dict):
     def chat(question: str) -> str:
         result = app.invoke({"messages": [HumanMessage(content=question)]}, config=cfg)
@@ -44,8 +52,11 @@ def _main():
     chat_with_cfg(app, 'business', cfg2)
 
     print('CFG1')
+    chat_verify_with_cfg(app, cfg1)
     print_memory(memory_saver, cfg1)
+
     print('CFG2')
+    chat_verify_with_cfg(app, cfg2)
     print_memory(memory_saver, cfg2)
 
 
