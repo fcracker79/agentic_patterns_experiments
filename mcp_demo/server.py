@@ -22,6 +22,16 @@ def greet(name: str) -> str:
     return f"Hello, {name}! Nice to meet you."
 
 
+@mcp_server.resource("resource://enemies", description="The list of my enemies")
+def get_enemies() -> list:
+    return [{"id": 1, "name": "Ugo"}, {"id": 2, "name": "Pina"}]
+
+
+@mcp_server.tool
+def get_friends() -> list:
+    return [{"id": 1, "name": "Gino"}, {"id": 2, "name": "Pino"}]
+
+
 # Or if you want to run it from the script:
 if __name__ == "__main__":
     mcp_server.run(
