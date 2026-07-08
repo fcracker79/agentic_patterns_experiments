@@ -4,8 +4,8 @@ from langchain_ollama import ChatOllama
 
 from . import keys
 
-def create_openai_llm(k: keys.Keys) -> BaseChatModel:
-    llm = ChatOpenAI(temperature=0, api_key=k.openai)
+def create_openai_llm(k: keys.Keys, **kw) -> BaseChatModel:
+    llm = ChatOpenAI(temperature=0, api_key=k.openai, **kw)
     return llm
 
 
