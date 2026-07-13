@@ -6,8 +6,9 @@ import weaviate
 from langchain_community.document_loaders import TextLoader
 from langchain_core.documents import Document
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableSerializable
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
@@ -44,11 +45,33 @@ class RAGGraphState(TypedDict):
     generation: str
 
 
-def _retrieve_documents_node(state: RAGGraphState, retriever: RunnableSerializable[str, typing.List[Document]]) -> RAGGraphState:
+def _retrieve_documents_node(state: RAGGraphState, retriever: RunnableSerializable[str, typing.List[Document]], llm: BaseChatModel) -> RAGGraphState:
     """Retrieves documents based on the user's question."""
     question = state["question"]
     documents = retriever.invoke(question)
-    return {"documents": documents}
+
+    prompt = ChatPromptTemplate.from_messages([
+        (
+            "human",
+            """
+            Given question {question}, do the following documents provide relevant context?
+            Respond with just YES or NO.
+            """
+        ),
+        MessagesPlaceholder("documents"),
+    ])
+
+    context_evaluator = prompt | llm | StrOutputParser()
+
+    document_messages = [HumanMessage(content=doc.page_content) for doc in documents]
+
+    resp = context_evaluator.invoke({"question": question, "documents": document_messages}).strip().upper()
+    if resp == "YES":
+        return {"documents": documents}
+    if resp == "NO":
+        return {"documents": []}
+    raise ValueError(resp)
+
 
 def _generate_response_node(state: RAGGraphState, llm: BaseChatModel) -> RAGGraphState:
     """Generates a response using the LLM based on retrieved
@@ -83,7 +106,7 @@ def _create_graph() -> CompiledStateGraph:
 
     workflow = StateGraph(RAGGraphState)
     # Add nodes
-    workflow.add_node("retrieve", partial(_retrieve_documents_node, retriever=retriever))
+    workflow.add_node("retrieve", partial(_retrieve_documents_node, retriever=retriever, llm=llm))
     workflow.add_node("generate", partial(_generate_response_node, llm=llm))
     # Set the entry point
     workflow.set_entry_point("retrieve")
