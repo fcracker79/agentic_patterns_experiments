@@ -17,7 +17,12 @@ dependencies = [
     "langchain-mcp-adapters>=0.3.0",
     "langchain-ollama>=1.1.0",
     "langchain-openai>=1.2.2",
+    "langchain-text-splitters>=1.1.2",
+    "langchain-weaviate>=0.0.5",
     "langgraph>=1.2.4",
     "nest-asyncio>=1.6.0",
     "pydantic>=2.13.4",
+    "requests>=2.34.2",
+    "weaviate>=0.1.2",
+    "weaviate-client>=4.22.0",
 ]
